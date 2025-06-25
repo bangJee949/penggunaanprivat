@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Microstock FTP with Gemini</title>
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+  <h2>Upload to Adobe Stock + Metadata by Gemini</h2>
+  <form id="uploadForm" enctype="multipart/form-data">
+    <label>File:</label><input type="file" name="file" required><br>
+    <label>Platform:</label>
+    <select name="platform"><option>Adobe Stock</option></select><br>
+    <label>Protocol:</label><select name="protocol"><option>SFTP</option></select><br>
+    <label>Host:</label><input type="text" name="host" value="sftp.contributor.adobestock.com"><br>
+    <label>Port:</label><input type="number" name="port" value="22"><br>
+    <label>Username (Adobe ID):</label><input type="text" name="username"><br>
+    <label>Password:</label><input type="password" name="password"><br>
+    <label>Gemini API Key:</label><input type="text" name="gemini_key"><br>
+    <button type="submit">Upload & Generate Metadata</button>
+  </form>
+  <div id="result"></div>
+
+  <script>
+    document.getElementById('uploadForm').onsubmit = async function(e) {
+      e.preventDefault();
+      const formData = new FormData(this);
+      const res = await fetch('/upload', {
+        method: 'POST',
+        body: formData
+      });
+      const data = await res.json();
+      document.getElementById('result').innerHTML = 
+        "<p><b>Status:</b> " + data.message + "</p>" +
+        "<p><b>Title:</b> " + data.metadata.title + "</p>" +
+        "<p><b>Description:</b> " + data.metadata.description + "</p>" +
+        "<p><b>Keywords:</b> " + data.metadata.keywords.join(", ") + "</p>";
+    };
+  </script>
+</body>
+</html>
