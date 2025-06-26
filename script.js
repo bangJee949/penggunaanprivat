@@ -1,27 +1,15 @@
 function generateMetadata(fileName, tags = []) {
-    const baseName = fileName.replace(/\.[^/.]+$/, "").replace(/[_-]/g, " ").trim();
+    const baseName = fileName.replace(/\.[^/.]+$/, "").replace(/[_-]/g, " ");
+    const title = baseName.slice(0, 70);  // Max 70 chars
 
-    // Judul maksimal 70 karakter, awali dengan huruf kapital
-    const title = baseName
-        .split(" ")
-        .map(w => w.charAt(0).toUpperCase() + w.slice(1))
-        .join(" ")
-        .slice(0, 70);
+    const description = `Foto atau video dengan judul "${baseName}" yang menggambarkan konten visual dengan jelas. Cocok untuk digunakan dalam berbagai proyek kreatif yang memerlukan aset visual berkualitas.`;
 
-    // Deskripsi informatif dan keyword-rich, sesuai pedoman Adobe Stock
-    const description = `High-quality stock ${fileName.toLowerCase().includes("video") ? "video" : "image"} titled "${title}", suitable for commercial, editorial, or creative use involving ${baseName.toLowerCase()}.`;
-
-    // Kata kunci dari nama file dan tag unik, bersih, tanpa angka/simbol
-    const keywords = [...new Set(
-        tags.concat(baseName.toLowerCase().split(/[\s,._-]+/))
-    )]
-        .map(k => k.trim())
-        .filter(k => k.length > 2 && /^[a-zA-Z]+$/.test(k))
-        .slice(0, 49); // Adobe Stock max: 49
+    const keywords = [...new Set(tags.concat(baseName.toLowerCase().split(" ")))]
+        .filter(k => k.length > 2)
+        .slice(0, 50);
 
     return { title, description, keywords };
 }
-
 
 let uploadedFiles = [];
 let userApiKey = localStorage.getItem("geminiApiKey") || "";
@@ -110,6 +98,9 @@ document.addEventListener("DOMContentLoaded", () => {
             } catch (err) {
                 output.push({ filename: file.name, previewUrl: "", type: file.type, text: "Error fetching metadata." });
             }
+
+            // ✅ Tambahkan delay 5 detik antar file
+            await new Promise(resolve => setTimeout(resolve, 5000));
         }
 
         displayResults(output);
@@ -125,12 +116,12 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     function extract(field, text) {
-        const match = text.match(new RegExp(`${field}\\s*[:：]\\s*(.*?)\\n`, "i"));
-        return match ? match[1].replace(/^\\*+|\\*+$/g, "").trim() : "N/A";
+        const match = text.match(new RegExp(`${field}\s*[:：]\s*(.*?)\n`, "i"));
+        return match ? match[1].replace(/^\*+|\*+$/g, "").trim() : "N/A";
     }
 
     function clean(text) {
-        return text.replace(/^\\*+|\\*+$/g, "").trim();
+        return text.replace(/^\*+|\*+$/g, "").trim();
     }
 
     function displayResults(dataArray) {
