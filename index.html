@@ -1,0 +1,124 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>IEEG</title>
+  <link rel="stylesheet" href="styles.css">
+  <style>
+    .api-key-section {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      margin-bottom: 20px;
+    }
+
+    .api-key-row {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
+    .api-key-row input {
+      flex: 1;
+      padding: 10px;
+      border-radius: 6px;
+      border: 1px solid #ccc;
+    }
+
+    .api-key-row button {
+      padding: 10px 20px;
+      border-radius: 6px;
+      background-color: #007bff;
+      color: white;
+      border: none;
+      cursor: pointer;
+    }
+
+    .api-key-row button:hover {
+      background-color: #0056b3;
+    }
+
+    .api-key-link-row {
+      display: flex;
+      justify-content: flex-start;
+      font-size: 14px;
+      padding-left: 2px;
+    }
+
+    .api-key-link-row a {
+      color: #007bff;
+      font-weight: bold;
+      margin-left: 5px;
+      text-decoration: none;
+    }
+
+    .api-key-link-row a:hover {
+      text-decoration: underline;
+    }
+  </style>
+</head>
+<body>
+<main class="container">
+  <h2>Selamat datang di IEEG ( Industri Ekosistem Ekonomi Digital ) By Tim Bang Jey</h2>
+
+  <div class="api-key-section">
+    <!-- BARIS 1 -->
+    <div class="api-key-row">
+      <input type="text" id="apiKeyInput" placeholder="Enter your Gemini API Key">
+      <button id="saveApiKey">Save API Key</button>
+    </div>
+
+    <!-- BARIS 2 -->
+    <div class="api-key-link-row">
+      Belum punya API Key?
+      <a href="https://makersuite.google.com/app/apikey" target="_blank" rel="noopener noreferrer">
+        Dapatkan di sini
+      </a>
+    </div>
+
+    <div id="apiKeyStatus"></div>
+  </div>
+
+  <div class="upload-area" id="uploadArea">
+    <p>Klik Di Sini Untuk Upload Foto/Video (Maksimal 100)</p>
+    <input type="file" id="fileInput" accept="image/*,video/*" multiple hidden>
+  </div>
+
+  <div id="previewArea"></div>
+  <button id="generateButton" disabled>Start Now</button>
+  <div id="results" class="tabs-container"></div>
+  <div class="trend-section" style="margin-top: 40px;">
+    <h3>Cari Tema Trend Terlaris</h3>
+    <p>Prediksi tren konten yang akan populer di bulan berikutnya berdasarkan bulan saat ini.</p>
+    <button id="fetchTrendsButton">Cari Trend Terlaris</button>
+    <div id="trendResults" style="display: none; margin-top: 20px; padding: 10px; border: 1px solid #ccc; border-radius: 6px;"></div>
+  </div>
+
+  <div id="toast" class="toast"></div>
+
+  <div class="footer-message">
+    <p>Ingat untuk diperiksa kembali title dan keyword yang kurang relevan, kesempurnaan milik Allah SWT.</p>
+    <p>🌟 Jangan lupa bersyukur dan sabar, Man Jadda Wajada 🌟</p>
+  </div>
+</main>
+<script src="script.js"></script>
+
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+  const trendButton = document.getElementById("fetchTrendsButton");
+  const trendResults = document.getElementById("trendResults");
+
+  trendButton.addEventListener("click", function () {
+    if (trendResults.style.display === "none" || trendResults.style.display === "") {
+      trendResults.style.display = "block";
+      trendButton.textContent = "Tutup Tab";
+    } else {
+      trendResults.style.display = "none";
+      trendButton.textContent = "Cari Trend Terlaris";
+    }
+  });
+});
+</script>
+
+</body>
+</html>
