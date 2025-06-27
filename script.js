@@ -1,18 +1,16 @@
 function generateMetadata(fileName, tags = []) {
     const baseName = fileName.replace(/\.[^/.]+$/, "").replace(/[_-]/g, " ");
-    const title = baseName.slice(0, 70);  // Max 70 chars
-
-    // Buat deskripsi berdasarkan nama file dan tag yang relevan
-    const description = `Foto atau video dengan judul "${baseName}" yang menggambarkan konten visual dengan jelas. Cocok untuk digunakan dalam berbagai proyek kreatif yang memerlukan aset visual berkualitas.`;
-
-    // Pilih maksimal 50 keyword unik, terurut
+    const title = baseName.slice(0, 70);
+    const description = `Konten berjudul "${baseName}" cocok untuk berbagai kebutuhan kreatif.`;
     const keywords = [...new Set(tags.concat(baseName.toLowerCase().split(" ")))]
         .filter(k => k.length > 2)
         .slice(0, 50);
-
     return { title, description, keywords };
 }
 
+function delay(ms) {
+    return new Promise(resolve => setTimeout(resolve, ms));
+}
 
 let uploadedFiles = [];
 let userApiKey = localStorage.getItem("geminiApiKey") || "";
@@ -28,7 +26,6 @@ document.addEventListener("DOMContentLoaded", () => {
     const results = document.getElementById("results");
     const toast = document.getElementById("toast");
 
-    // Load API key if available
     if (userApiKey) {
         apiKeyInput.value = userApiKey;
         apiKeyStatus.textContent = "API Key loaded.";
@@ -70,11 +67,14 @@ document.addEventListener("DOMContentLoaded", () => {
         results.innerHTML = "Generating metadata...";
         const output = [];
 
-        for (const file of uploadedFiles) {
+        for (const [i, file] of uploadedFiles.entries()) {
             const base64 = await fileToBase64(file);
             const type = file.type.startsWith("video/") ? "video" : "image";
 
-            const prompt = `Please analyze this ${type} content and return the metadata for Adobe Stock marketplace:\n\n1. Title: extremely relevant, clear, concise, 5-10 words only, no punctuation, prioritize trending accurate phrases.\n2. Description: no more than 200 characters, very informative, clear and keyword-rich.\n3. Keywords: exactly 49 keywords, comma-separated, the first 10 must be most relevant and trending to this content.`;
+            const prompt = `Analyze this ${type} and return metadata:
+1. Title: clear, concise, trending.
+2. Description: max 200 characters.
+3. Keywords: 49 comma-separated.`;
 
             const body = {
                 contents: [{
@@ -90,6 +90,7 @@ document.addEventListener("DOMContentLoaded", () => {
                 }]
             };
 
+            let resultText = "";
             try {
                 const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key=${userApiKey}`, {
                     method: "POST",
@@ -97,11 +98,30 @@ document.addEventListener("DOMContentLoaded", () => {
                     body: JSON.stringify(body)
                 });
                 const data = await res.json();
-                const text = data.candidates?.[0]?.content?.parts?.[0]?.text ?? "No result";
-                output.push({ filename: file.name, previewUrl: URL.createObjectURL(file), type: file.type, text });
+                resultText = data.candidates?.[0]?.content?.parts?.[0]?.text || "";
             } catch (err) {
-                output.push({ filename: file.name, previewUrl: "", type: file.type, text: "Error fetching metadata." });
+                console.error("Metadata fetch error:", err);
             }
+
+            let title = extract("title", resultText);
+            let description = extract("description", resultText);
+            let keywords = extract("keywords", resultText);
+
+            const fallback = generateMetadata(file.name);
+            if (!title || title === "N/A") title = fallback.title;
+            if (!description || description === "N/A") description = fallback.description;
+            if (!keywords || keywords === "N/A") keywords = fallback.keywords.join(", ");
+
+            output.push({
+                filename: file.name,
+                previewUrl: URL.createObjectURL(file),
+                type: file.type,
+                title,
+                description,
+                keywords
+            });
+
+            await delay(500); // jeda antar permintaan API
         }
 
         displayResults(output);
@@ -117,12 +137,8 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     function extract(field, text) {
-        const match = text.match(new RegExp(`${field}\s*[:：]\s*(.*?)\n`, "i"));
-        return match ? match[1].replace(/^\*+|\*+$/g, "").trim() : "N/A";
-    }
-
-    function clean(text) {
-        return text.replace(/^\*+|\*+$/g, "").trim();
+        const match = text.match(new RegExp(`${field}\\s*[:：]\\s*(.*?)\\n`, "i"));
+        return match ? match[1].trim() : "";
     }
 
     function displayResults(dataArray) {
@@ -137,15 +153,11 @@ document.addEventListener("DOMContentLoaded", () => {
             media.className = "preview-media";
             block.appendChild(media);
 
-            const title = clean(extract("title", item.text));
-            const desc = clean(extract("description", item.text));
-            const keywords = clean(extract("keywords", item.text));
-
             block.innerHTML += `
                 <div class="tab-header"><h3>${item.filename}</h3></div>
-                <div><strong>Title:</strong> <button class="copy-btn" onclick="copyText(\`${title}\`)">Copy</button><pre>${title}</pre></div>
-                <div><strong>Description:</strong> <button class="copy-btn" onclick="copyText(\`${desc}\`)">Copy</button><pre>${desc}</pre></div>
-                <div><strong>Keywords:</strong> <button class="copy-btn" onclick="copyText(\`${keywords}\`)">Copy</button><pre>${keywords}</pre></div>
+                <div><strong>Title:</strong> <button class="copy-btn" onclick="copyText(\`${item.title}\`)">Copy</button><pre>${item.title}</pre></div>
+                <div><strong>Description:</strong> <button class="copy-btn" onclick="copyText(\`${item.description}\`)">Copy</button><pre>${item.description}</pre></div>
+                <div><strong>Keywords:</strong> <button class="copy-btn" onclick="copyText(\`${item.keywords}\`)">Copy</button><pre>${item.keywords}</pre></div>
             `;
             results.appendChild(block);
         });
@@ -158,44 +170,4 @@ document.addEventListener("DOMContentLoaded", () => {
             setTimeout(() => toast.classList.remove("show"), 2000);
         });
     };
-});
-
-
-document.getElementById("fetchTrendsButton").addEventListener("click", () => {
-    const trendResults = document.getElementById("trendResults");
-    const currentMonth = new Date().getMonth();
-    const nextMonth = new Date(new Date().setMonth(currentMonth + 1)).toLocaleString('id-ID', { month: 'long' });
-
-    trendResults.innerHTML = `
-      <strong>Prediksi Tren Bulan ${nextMonth}</strong><br><br>
-
-      <div style="margin-bottom: 20px;">
-        <h4>📷 Adobe Stock</h4>
-        <ul>
-          <li>Foto: Aktivitas liburan musim panas, alam tropis, keluarga bahagia, kesehatan & gaya hidup</li>
-          <li>Video: Aerial pantai, cityscape dinamis, konten realita dan cinematic</li>
-          <li>Tema Populer: Inklusivitas, AI, keberlanjutan, remote working</li>
-        </ul>
-      </div>
-
-      <div style="margin-bottom: 20px;">
-        <h4>📸 Shutterstock</h4>
-        <ul>
-          <li>Foto: Perjalanan internasional, budaya lokal, fotografi makanan, close-up produk</li>
-          <li>Video: Motion graphics untuk bisnis, startup tech, green energy</li>
-          <li>Tema Populer: UI/UX digital, ekspresi emosi, AI tools</li>
-        </ul>
-      </div>
-
-      <div style="margin-bottom: 20px;">
-        <h4>🎨 Envato Elements</h4>
-        <ul>
-          <li>Foto & Grafik: Desain branding, mockup kemasan, flat illustration musim panas</li>
-          <li>Video Template: Instagram Reels, YouTube Intro, slideshow event</li>
-          <li>Tema Populer: Retro futurism, neon glitch, desain UI minimalis</li>
-        </ul>
-      </div>
-
-      <p><em>Data diprediksi dari pola musiman dan update tren visual pada platform masing-masing.</em></p>
-    `;
 });
