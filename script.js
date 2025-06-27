@@ -3,7 +3,7 @@ function generateMetadata(fileName, tags = []) {
     const titleWords = baseName.split(" ").filter(w => w.length > 2).slice(0, 8);
     const title = titleWords.join(" ");
 
-    const description = `Relevan dan populer: ${baseName.replace(/[_-]/g, " ")}. Visual ini menampilkan konten yang sedang tren dan memiliki potensi tinggi untuk menarik perhatian di Adobe Stock.`;
+    const description = `Konten ini menampilkan ${title.toLowerCase()} dalam konteks yang relevan, cocok untuk proyek kreatif dan editorial di Adobe Stock.`;
 
     const keywords = [...new Set(tags.concat(baseName.toLowerCase().split(" ")))]
         .filter(k => k.length > 2)
@@ -89,7 +89,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
         for (const [i, file] of uploadedFiles.entries()) {
             const base64 = await fileToBase64(file);
-            const type = "video"; // semua konten diperlakukan sebagai video untuk prediksi metadata
+            const type = file.type.startsWith("video/") ? "video" : "image";
 
             const prompt = `Act as a professional Adobe Stock content contributor. Analyze this ${type} and return metadata strictly following Adobe Stock Contributor Guidelines (https://helpx.adobe.com/stock/contributor/help/titles-and-keyword.html):\n\n1. Title: Descriptive, clear, no punctuation, avoid brand/model, use 5-8 trending, relevant words.\n2. Description: Max 200 characters, keyword-rich, editorial/creative use allowed.\n3. Keywords: Exactly 49, comma-separated, ordered from most to least relevant, no trademark or brand words.`;
 
