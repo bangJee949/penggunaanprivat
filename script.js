@@ -18,93 +18,155 @@ let uploadedFiles = [];
 let userApiKey = localStorage.getItem("geminiApiKey") || "";
 
 document.addEventListener("DOMContentLoaded", () => {
-    const apiKeyInput = document.getElementById("apiKeyInput");
-    const saveApiKey = document.getElementById("saveApiKey");
-    const apiKeyStatus = document.getElementById("apiKeyStatus");
-    const fileInput = document.getElementById("fileInput");
-    const uploadArea = document.getElementById("uploadArea");
-    const generateButton = document.getElementById("generateButton");
-    const previewArea = document.getElementById("previewArea");
-    const results = document.getElementById("results");
-    const toast = document.getElementById("toast");
+  const apiKeyInput = document.getElementById("apiKeyInput");
+  const saveApiKey = document.getElementById("saveApiKey");
+  const apiKeyStatus = document.getElementById("apiKeyStatus");
+  const fileInput = document.getElementById("fileInput");
+  const uploadArea = document.getElementById("uploadArea");
+  const generateButton = document.getElementById("generateButton");
+  const previewArea = document.getElementById("previewArea");
+  const results = document.getElementById("results");
+  const toast = document.getElementById("toast");
 
-    // Load API key if available
-    if (userApiKey) {
-        apiKeyInput.value = userApiKey;
-        apiKeyStatus.textContent = "API Key loaded.";
-        generateButton.disabled = false;
+  // Load API key if available
+  if (userApiKey) {
+    apiKeyInput.value = userApiKey;
+    apiKeyStatus.textContent = "API Key loaded.";
+    generateButton.disabled = false;
+  }
+  saveApiKey.addEventListener("click", () => {
+    const key = apiKeyInput.value.trim();
+    if (key) {
+      userApiKey = key;
+      localStorage.setItem("geminiApiKey", key);
+      apiKeyStatus.textContent = "API Key saved.";
+      generateButton.disabled = false;
+    } else {
+      apiKeyStatus.textContent = "Please enter a valid API key.";
     }
+  });
 
-    saveApiKey.addEventListener("click", () => {
-        const key = apiKeyInput.value.trim();
-        if (key) {
-            userApiKey = key;
-            localStorage.setItem("geminiApiKey", key);
-            apiKeyStatus.textContent = "API Key saved.";
-            generateButton.disabled = false;
-        } else {
-            apiKeyStatus.textContent = "Please enter a valid API key.";
-        }
+  uploadArea.addEventListener("click", () => fileInput.click());
+
+  fileInput.addEventListener("change", e => {
+    const files = Array.from(e.target.files).slice(0, 100);
+    uploadedFiles = files.filter(f => f.type.startsWith("image/") || f.type.startsWith("video/"));
+    previewArea.innerHTML = "";
+    uploadedFiles.forEach(file => {
+      const url = URL.createObjectURL(file);
+      const media = document.createElement(file.type.startsWith("video/") ? "video" : "img");
+      media.src = url;
+      if (file.type.startsWith("video/")) media.controls = true;
+      media.className = "preview-media";
+      previewArea.appendChild(media);
     });
+    generateButton.disabled = uploadedFiles.length === 0;
+  });
 
-    uploadArea.addEventListener("click", () => fileInput.click());
-
-    fileInput.addEventListener("change", e => {
-        const files = Array.from(e.target.files).slice(0, 100);
-        uploadedFiles = files.filter(f => f.type.startsWith("image/") || f.type.startsWith("video/"));
-        previewArea.innerHTML = "";
-        uploadedFiles.forEach(file => {
-            const url = URL.createObjectURL(file);
-            const media = document.createElement(file.type.startsWith("video/") ? "video" : "img");
-            media.src = url;
-            if (file.type.startsWith("video/")) media.controls = true;
-            media.className = "preview-media";
-            previewArea.appendChild(media);
+  // Fungsi utama: proses batch, anti overload
+  generateButton.addEventListener("click", async () => {
+    if (!userApiKey) return alert("API Key not set.");
+    results.innerHTML = "Generating metadata...";
+    const batchSize = 5; // Batasi permintaan paralel
+    const output = await processInBatches(uploadedFiles, batchSize, async (file) => {
+      const base64 = await fileToBase64(file);
+      const type = file.type.startsWith("video/") ? "video" : "image";
+      const prompt = `Please analyze this ${type} content and return the metadata for Adobe Stock marketplace:\n\n1. Title: extremely relevant, clear, concise, 5-10 words only, no punctuation, prioritize trending accurate phrases.\n2. Description: no more than 200 characters, very informative, clear and keyword-rich.\n3. Keywords: exactly 49 keywords, comma-separated, the first 10 must be most relevant and trending to this content.`;
+      const body = {
+        contents: [{
+          parts: [
+            { text: prompt },
+            { inline_data: { mime_type: file.type, data: base64.split(",")[1] } }
+          ]
+        }]
+      };
+      try {
+        const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key=${userApiKey}`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(body)
         });
-        generateButton.disabled = uploadedFiles.length === 0;
+        const data = await res.json();
+        const text = data.candidates?.[0]?.content?.parts?.[0]?.text ?? "No result";
+        return {
+          filename: file.name,
+          previewUrl: URL.createObjectURL(file),
+          type: file.type,
+          text
+        };
+      } catch (err) {
+        return {
+          filename: file.name,
+          previewUrl: "",
+          type: file.type,
+          text: "Error fetching metadata."
+        };
+      }
     });
+    displayResults(output);
+  });
 
-    generateButton.addEventListener("click", async () => {
-        if (!userApiKey) return alert("API Key not set.");
+  // Fungsi batch async
+  async function processInBatches(files, batchSize, processFn) {
+    let results = [];
+    for (let i = 0; i < files.length; i += batchSize) {
+      const batch = files.slice(i, i + batchSize);
+      const batchResults = await Promise.all(batch.map(processFn));
+      results = results.concat(batchResults);
+    }
+    return results;
+  }
 
-        results.innerHTML = "Generating metadata...";
-        const output = [];
+  function fileToBase64(file) {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.readAsDataURL(file);
+      reader.onload = () => resolve(reader.result);
+      reader.onerror = err => reject(err);
+    });
+  }
 
-        for (const file of uploadedFiles) {
-            const base64 = await fileToBase64(file);
-            const type = file.type.startsWith("video/") ? "video" : "image";
+  // Fungsi extract lebih fleksibel
+  function extract(field, text) {
+    const regexes = [
+      new RegExp(`${field}\\s*[:：]\\s*([\\s\\S]*?)(?:\\n|$)`, "i"),
+      new RegExp(`${field}\\s*[-–]\\s*([\\s\\S]*?)(?:\\n|$)`, "i"),
+      new RegExp(`${field}\\s*\\n([\\s\\S]*?)(?:\\n\\w+\\s*[:：-–]|$)`, "i"),
+    ];
+    for (const regex of regexes) {
+      const match = text.match(regex);
+      if (match) return match[1].replace(/^\*+|\*+$/g, "").trim();
+    }
+    return "N/A";
+  }
 
-            const prompt = `Please analyze this ${type} content and return the metadata for Adobe Stock marketplace:\n\n1. Title: extremely relevant, clear, concise, 5-10 words only, no punctuation, prioritize trending accurate phrases.\n2. Description: no more than 200 characters, very informative, clear and keyword-rich.\n3. Keywords: exactly 49 keywords, comma-separated, the first 10 must be most relevant and trending to this content.`;
+  function clean(text) {
+    return text.replace(/^\*+|\*+$/g, "").trim();
+  }
 
-            const body = {
-                contents: [{
-                    parts: [
-                        { text: prompt },
-                        {
-                            inline_data: {
-                                mime_type: file.type,
-                                data: base64.split(",")[1]
-                            }
-                        }
-                    ]
-                }]
-            };
-
-            try {
-                const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key=${userApiKey}`, {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify(body)
-                });
-                const data = await res.json();
-                const text = data.candidates?.[0]?.content?.parts?.[0]?.text ?? "No result";
-                output.push({ filename: file.name, previewUrl: URL.createObjectURL(file), type: file.type, text });
-            } catch (err) {
-                output.push({ filename: file.name, previewUrl: "", type: file.type, text: "Error fetching metadata." });
-            }
-        }
-
-        displayResults(output);
+  // Tampilkan hasil dengan tipe media akurat
+  function displayResults(dataArray) {
+    results.innerHTML = "";
+    dataArray.forEach(item => {
+      const block = document.createElement("div");
+      block.className = "tab-block";
+      const media = document.createElement(item.type.startsWith("video/") ? "video" : "img");
+      media.src = item.previewUrl;
+      if (item.type.startsWith("video/")) media.controls = true;
+      media.className = "preview-media";
+      block.appendChild(media);
+      const title = clean(extract("title", item.text));
+      const desc = clean(extract("description", item.text));
+      const keywords = clean(extract("keywords", item.text));
+      block.innerHTML += `
+        <h4>${title}</h4>
+        <p>${desc}</p>
+        <pre>${keywords}</pre>
+      `;
+      results.appendChild(block);
+    });
+  }
+});
     });
 
     function fileToBase64(file) {
