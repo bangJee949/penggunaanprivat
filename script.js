@@ -1,7 +1,7 @@
 function generateMetadata(fileName, tags = []) {
     const baseName = fileName.replace(/\.[^/.]+$/, "").replace(/[_-]/g, " ");
     const title = baseName.slice(0, 70);
-    const description = `Konten berjudul "${baseName}" cocok untuk berbagai kebutuhan kreatif.`;
+    const description = `Konten berjudul \"${baseName}\" cocok untuk berbagai kebutuhan kreatif.`;
     const keywords = [...new Set(tags.concat(baseName.toLowerCase().split(" ")))]
         .filter(k => k.length > 2)
         .slice(0, 50);
@@ -71,10 +71,7 @@ document.addEventListener("DOMContentLoaded", () => {
             const base64 = await fileToBase64(file);
             const type = file.type.startsWith("video/") ? "video" : "image";
 
-            const prompt = `Analyze this ${type} and return metadata:
-1. Title: clear, concise, trending.
-2. Description: max 200 characters.
-3. Keywords: 49 comma-separated.`;
+            const prompt = `Act as a professional Adobe Stock content contributor. Analyze this ${type} and return metadata strictly following Adobe Stock Contributor Guidelines (https://helpx.adobe.com/stock/contributor/help/titles-and-keyword.html):\n\n1. Title: Descriptive, clear, no punctuation, avoid brand/model, use 5-8 trending, relevant words.\n2. Description: Max 200 characters, keyword-rich, editorial/creative use allowed.\n3. Keywords: Exactly 49, comma-separated, ordered from most to least relevant, no trademark or brand words.`;
 
             const body = {
                 contents: [{
@@ -92,11 +89,12 @@ document.addEventListener("DOMContentLoaded", () => {
 
             let resultText = "";
             try {
-                const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key=${userApiKey}`, {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify(body)
-                });
+                const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key=${userApiKey}`,
+                    {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify(body)
+                    });
                 const data = await res.json();
                 resultText = data.candidates?.[0]?.content?.parts?.[0]?.text || "";
             } catch (err) {
