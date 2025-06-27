@@ -103,7 +103,8 @@ document.addEventListener("DOMContentLoaded", () => {
 
             let title = extract("title", resultText);
             let description = extract("description", resultText);
-            let keywords = extract("keywords", resultText);
+            let keywords = extract("keywords", resultText).split(/[,
+]/).map(k => k.trim()).filter(k => k.length > 0).slice(0, 49).join(", ");
 
             const fallback = generateMetadata(file.name);
             if (!title || title === "N/A") title = fallback.title;
@@ -153,9 +154,9 @@ document.addEventListener("DOMContentLoaded", () => {
 
             block.innerHTML += `
                 <div class="tab-header"><h3>${item.filename}</h3></div>
-                <div><strong>Title:</strong> <button class="copy-btn" onclick="copyText(\`${item.title}\`)">Copy</button><pre>${item.title}</pre></div>
-                <div><strong>Description:</strong> <button class="copy-btn" onclick="copyText(\`${item.description}\`)">Copy</button><pre>${item.description}</pre></div>
-                <div><strong>Keywords:</strong> <button class="copy-btn" onclick="copyText(\`${item.keywords}\`)">Copy</button><pre>${item.keywords}</pre></div>
+                <div><strong>Title:</strong> <button class="copy-btn" onclick="copyText('${item.title}')">Copy</button><pre>${item.title}</pre></div>`
+                <div><strong>Description:</strong> <button class="copy-btn" onclick="copyText('${item.description}')">Copy</button><pre>${item.description}</pre></div>
+                <div><strong>Keywords:</strong> <button class="copy-btn" onclick="copyText('${item.keywords}')">Copy</button><pre>${item.keywords}</pre></div>
             `;
             results.appendChild(block);
         });
