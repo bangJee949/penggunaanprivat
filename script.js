@@ -26,7 +26,7 @@ document.addEventListener("DOMContentLoaded", () => {
     const results = document.getElementById("results");
     const toast = document.getElementById("toast");
 
-    if (userApiKey) {
+    if (userApiKey && apiKeyInput) {
         apiKeyInput.value = userApiKey;
         apiKeyStatus.textContent = "API Key loaded.";
         generateButton.disabled = false;
@@ -45,12 +45,26 @@ document.addEventListener("DOMContentLoaded", () => {
     });
 
     uploadArea.addEventListener("click", () => fileInput.click());
+    uploadArea.addEventListener("dragover", (e) => {
+        e.preventDefault();
+        uploadArea.classList.add("drag-over");
+    });
+    uploadArea.addEventListener("dragleave", () => {
+        uploadArea.classList.remove("drag-over");
+    });
+    uploadArea.addEventListener("drop", (e) => {
+        e.preventDefault();
+        uploadArea.classList.remove("drag-over");
+        handleFiles(Array.from(e.dataTransfer.files));
+    });
 
-    fileInput.addEventListener("change", e => {
-        const files = Array.from(e.target.files).slice(0, 100);
-        uploadedFiles = files.filter(f => f.type.startsWith("image/") || f.type.startsWith("video/"));
+    fileInput.addEventListener("change", e => handleFiles(Array.from(e.target.files)));
+
+    function handleFiles(files) {
+        const selected = files.slice(0, 100).filter(f => f.type.startsWith("image/") || f.type.startsWith("video/"));
+        uploadedFiles = selected;
         previewArea.innerHTML = "";
-        uploadedFiles.forEach(file => {
+        selected.forEach(file => {
             const url = URL.createObjectURL(file);
             const media = document.createElement(file.type.startsWith("video/") ? "video" : "img");
             media.src = url;
@@ -58,6 +72,8 @@ document.addEventListener("DOMContentLoaded", () => {
             media.className = "preview-media";
             previewArea.appendChild(media);
         });
+        generateButton.disabled = selected.length === 0;
+    }
         generateButton.disabled = uploadedFiles.length === 0;
     });
 
