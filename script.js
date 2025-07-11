@@ -64,13 +64,21 @@ document.addEventListener("DOMContentLoaded", () => {
         generateButton.disabled = uploadedFiles.length === 0;
     });
 
-       generateButton.addEventListener("click", async () => {
+     generateButton.addEventListener("click", async () => {
     if (!userApiKey) return alert("API Key not set.");
 
     results.innerHTML = "Generating metadata...";
     const output = [];
 
-    for (const file of uploadedFiles) {
+    const fetchWithTimeout = (url, options, timeout = 15000) =>
+        Promise.race([
+            fetch(url, options),
+            new Promise((_, reject) =>
+                setTimeout(() => reject(new Error("Request timeout")), timeout)
+            )
+        ]);
+
+    for (const file of uploadedFiles.slice(0, 3)) {  // batasi uji ke 3 file dulu
         const base64 = await fileToBase64(file);
         const type = file.type.startsWith("video/") ? "video" : "image";
 
@@ -94,18 +102,32 @@ document.addEventListener("DOMContentLoaded", () => {
             }]
         };
 
-        try {
-            const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key=${userApiKey}`, {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify(body)
-            });
-            const data = await res.json();
-            const text = data.candidates?.[0]?.content?.parts?.[0]?.text ?? "No result";
-            output.push({ filename: file.name, previewUrl: URL.createObjectURL(file), type: file.type, text });
-        } catch (err) {
-            output.push({ filename: file.name, previewUrl: "", type: file.type, text: "Error fetching metadata." });
+        let text = "";
+        for (let attempt = 0; attempt < 2; attempt++) {
+            try {
+                const res = await fetchWithTimeout(
+                    `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key=${userApiKey}`,
+                    {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify(body)
+                    }
+                );
+                const data = await res.json();
+                text = data.candidates?.[0]?.content?.parts?.[0]?.text ?? "";
+                if (text.trim()) break; // success
+            } catch (err) {
+                console.error("API Error:", err.message);
+                if (attempt === 1) text = "Error fetching metadata.";
+            }
         }
+
+        output.push({
+            filename: file.name,
+            previewUrl: URL.createObjectURL(file),
+            type: file.type,
+            text: text || "No result"
+        });
     }
 
     displayResults(output);
