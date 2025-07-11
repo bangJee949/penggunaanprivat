@@ -64,48 +64,52 @@ document.addEventListener("DOMContentLoaded", () => {
         generateButton.disabled = uploadedFiles.length === 0;
     });
 
-    generateButton.addEventListener("click", async () => {
-        if (!userApiKey) return alert("API Key not set.");
+       generateButton.addEventListener("click", async () => {
+    if (!userApiKey) return alert("API Key not set.");
 
-        results.innerHTML = "Generating metadata...";
-        const output = [];
+    results.innerHTML = "Generating metadata...";
+    const output = [];
 
-        for (const file of uploadedFiles) {
-            const base64 = await fileToBase64(file);
-            const type = file.type.startsWith("video/") ? "video" : "image";
+    for (const file of uploadedFiles) {
+        const base64 = await fileToBase64(file);
+        const type = file.type.startsWith("video/") ? "video" : "image";
 
-            const prompt = `Please analyze this ${type} content and return the metadata for Adobe Stock marketplace:\n\n1. Title: extremely relevant, clear, concise, 5-10 words only, no punctuation, prioritize trending accurate phrases.\n2. Description: no more than 200 characters, very informative, clear and keyword-rich.\n3. Keywords: exactly 49 keywords, comma-separated, the first 10 must be most relevant and trending to this content.`;
+        const prompt = `Please analyze this ${type} content and return the metadata for Adobe Stock marketplace:
 
-            const body = {
-                contents: [{
-                    parts: [
-                        { text: prompt },
-                        {
-                            inline_data: {
-                                mime_type: file.type,
-                                data: base64.split(",")[1]
-                            }
+1. Title: extremely relevant, clear, concise, 5-10 words only, no punctuation, prioritize trending accurate phrases.
+2. Description: no more than 200 characters, very informative, clear and keyword-rich.
+3. Keywords: return exactly 49 highly relevant, popular and trending one-word keywords only, comma-separated, no duplicates. First 10 keywords must match top downloaded contributor tags. No phrases.`;
+
+        const body = {
+            contents: [{
+                parts: [
+                    { text: prompt },
+                    {
+                        inline_data: {
+                            mime_type: file.type,
+                            data: base64.split(",")[1]
                         }
-                    ]
-                }]
-            };
+                    }
+                ]
+            }]
+        };
 
-            try {
-                const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key=${userApiKey}`, {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify(body)
-                });
-                const data = await res.json();
-                const text = data.candidates?.[0]?.content?.parts?.[0]?.text ?? "No result";
-                output.push({ filename: file.name, previewUrl: URL.createObjectURL(file), type: file.type, text });
-            } catch (err) {
-                output.push({ filename: file.name, previewUrl: "", type: file.type, text: "Error fetching metadata." });
-            }
+        try {
+            const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key=${userApiKey}`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(body)
+            });
+            const data = await res.json();
+            const text = data.candidates?.[0]?.content?.parts?.[0]?.text ?? "No result";
+            output.push({ filename: file.name, previewUrl: URL.createObjectURL(file), type: file.type, text });
+        } catch (err) {
+            output.push({ filename: file.name, previewUrl: "", type: file.type, text: "Error fetching metadata." });
         }
+    }
 
-        displayResults(output);
-    });
+    displayResults(output);
+});
 
     function fileToBase64(file) {
         return new Promise((resolve, reject) => {
