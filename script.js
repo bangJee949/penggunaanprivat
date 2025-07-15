@@ -69,19 +69,20 @@ document.addEventListener("DOMContentLoaded", () => {
             const captionData = await callDeepAI("image-captioning", blob);
             const tagData = await callDeepAI("densecap", blob);
 
-            let rawTitle = captionData?.output?.trim() || "Untitled video clip";
+            let rawTitle = captionData?.output?.trim() || "Untitled Stock Video";
             rawTitle = rawTitle.replace(/[.,:!?]/g, "").toLowerCase();
-            const title = rawTitle.split(" ").slice(0, 10).map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(" ");
 
-            const description = `Cuplikan video profesional menampilkan ${rawTitle}, sesuai untuk proyek kreatif, editorial, atau komersial.`;
+            const titleWords = rawTitle.split(" ").slice(0, 10);
+            const title = titleWords.map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(" ");
+
+            const description = `Stock footage menampilkan ${rawTitle}, cocok untuk penggunaan komersial, editorial, dan proyek kreatif lainnya.`;
 
             const tags = tagData?.output?.captions?.map(c => c.caption.split(" "))
                 .flat()
                 .map(k => k.toLowerCase().replace(/[^\w]/g, ""))
                 .filter(k => k.length > 2);
 
-            const keywordSet = new Set(tags);
-            rawTitle.split(" ").forEach(word => keywordSet.add(word));
+            const keywordSet = new Set([...tags, ...titleWords]);
             const keywords = Array.from(keywordSet).filter(Boolean).slice(0, 45);
 
             const text = `
