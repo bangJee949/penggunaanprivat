@@ -56,47 +56,54 @@ document.addEventListener("DOMContentLoaded", () => {
         generateButton.disabled = uploadedFiles.length === 0;
     });
 
-    generateButton.addEventListener("click", async () => {
-        if (!userApiKey) return alert("API Key not set.");
+generateButton.addEventListener("click", async () => {
+    if (!userApiKey) return alert("API Key not set.");
 
-        results.innerHTML = "<p><strong>⏳ Sedang menganalisis gambar... Mohon tunggu beberapa detik.</strong></p>";
-        const output = [];
+    results.innerHTML = "<p><strong>⏳ Sedang menganalisis gambar... Mohon tunggu beberapa detik.</strong></p>";
+    const output = [];
 
-        for (const file of uploadedFiles.slice(0, 3)) {
-            const base64 = await fileToBase64(file);
-            const blob = await (await fetch(base64)).blob();
+    for (const file of uploadedFiles.slice(0, 3)) {
+        const base64 = await fileToBase64(file);
+        const blob = await (await fetch(base64)).blob();
 
-            const captionData = await callDeepAI("image-captioning", blob);
-            console.log("Caption result:", captionData);
+        const captionData = await callDeepAI("image-captioning", blob);
+        const tagData = await callDeepAI("densecap", blob);
 
-            let rawTitle = captionData?.output?.trim() || "Untitled Stock Video";
-            rawTitle = rawTitle.replace(/[.,:!?]/g, "").toLowerCase();
+        // TITLE: hasil caption, kapitalisasi, batasi 10 kata
+        let rawCaption = captionData?.output?.trim() || "Stock Video Footage";
+        rawCaption = rawCaption.replace(/[.,:!?]/g, "");
+        const title = rawCaption.split(" ").slice(0, 10).map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(" ");
 
-            const titleWords = rawTitle.split(" ").slice(0, 10);
-            const title = titleWords.map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(" ");
+        // DESCRIPTION: hasil caption yang dijelaskan sebagai footage
+        const description = `Footage menampilkan ${rawCaption.toLowerCase()}, cocok untuk proyek komersial dan editorial.`;
 
-            const description = `Stock footage menampilkan ${rawTitle}, cocok untuk penggunaan komersial, editorial, dan proyek kreatif lainnya.`;
+        // KEYWORDS: ambil semua kata dari densecap caption
+        const allKeywords = (tagData?.output?.captions || [])
+            .map(c => c.caption.split(" "))
+            .flat()
+            .map(k => k.toLowerCase().replace(/[^a-z0-9]/g, ""))
+            .filter(k => k.length > 2 && !["the", "and", "with", "this", "that", "from", "have", "has", "been"].includes(k));
 
-            // Gunakan kata dari title saja sebagai keyword (sementara tanpa densecap)
-            const keywordSet = new Set(titleWords);
-            const keywords = Array.from(keywordSet).filter(Boolean).slice(0, 45);
+        const uniqueKeywords = [...new Set(allKeywords)];
+        const keywords = uniqueKeywords.slice(0, 45);
 
-            const text = `
+        const text = `
 Title: ${title}
 Description: ${description}
 Keywords: ${keywords.join(", ")}
 `;
 
-            output.push({
-                filename: file.name,
-                previewUrl: URL.createObjectURL(file),
-                type: file.type,
-                text
-            });
-        }
+        output.push({
+            filename: file.name,
+            previewUrl: URL.createObjectURL(file),
+            type: file.type,
+            text
+        });
+    }
 
-        displayResults(output);
-    });
+    displayResults(output);
+});
+
 
     async function callDeepAI(endpoint, blob) {
         const formData = new FormData();
