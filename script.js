@@ -80,8 +80,16 @@ document.addEventListener("DOMContentLoaded", () => {
 
             while (retries < maxRetries) {
                 result = await generateMetadataFromFile(file);
-                const hasValid = result.text.includes("title") && result.text.includes("description") && result.text.includes("keywords");
-                if (hasValid && !result.text.includes("N/A") && !result.text.includes("Gagal")) break;
+                const title = clean(extract("title", result.text));
+                const desc = clean(extract("description", result.text));
+                const keywords = clean(extract("keywords", result.text));
+
+                const isValid = title !== "N/A" && title !== "" &&
+                                desc !== "N/A" && desc !== "" &&
+                                keywords !== "N/A" && keywords !== "";
+
+                if (isValid) break;
+
                 console.warn(`🔁 Retry ${retries + 1} untuk file: ${file.name}`);
                 retries++;
                 await sleep(3000);
@@ -143,18 +151,11 @@ document.addEventListener("DOMContentLoaded", () => {
                     }
 
                     const raw = data.candidates?.[0]?.content?.parts?.[0]?.text || "";
-                    const hasAllFields = /title\s*[:：]/i.test(raw) &&
-                                         /description\s*[:：]/i.test(raw) &&
-                                         /keywords\s*[:：]/i.test(raw);
-
-                    if (!hasAllFields || raw.trim().length < 30) {
-                        console.warn("❌ Incomplete response, retrying...");
-                        continue;
-                    }
-
                     text = raw;
-                    success = true;
-                    break;
+                    if (text && text.length > 30) {
+                        success = true;
+                        break;
+                    }
                 } catch (err) {
                     console.error("Fetch error:", err.message);
                 }
