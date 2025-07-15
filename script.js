@@ -3,7 +3,7 @@ function generateMetadata(fileName, tags = []) {
     const title = baseName.slice(0, 70);  // Max 70 chars
 
     // Buat deskripsi berdasarkan nama file dan tag yang relevan
-    const description = Foto atau video dengan judul "${baseName}" yang menggambarkan konten visual dengan jelas. Cocok untuk digunakan dalam berbagai proyek kreatif yang memerlukan aset visual berkualitas.;
+    const description = `Foto atau video dengan judul "${baseName}" yang menggambarkan konten visual dengan jelas. Cocok untuk digunakan dalam berbagai proyek kreatif yang memerlukan aset visual berkualitas.`;
 
     // Pilih maksimal 50 keyword unik, terurut
     const keywords = [...new Set(tags.concat(baseName.toLowerCase().split(" ")))]
@@ -82,11 +82,11 @@ document.addEventListener("DOMContentLoaded", () => {
         const base64 = await fileToBase64(file);
         const type = file.type.startsWith("video/") ? "video" : "image";
 
-        const prompt = Please analyze this ${type} content and return the metadata for Adobe Stock marketplace:
+        const prompt = `Please analyze this ${type} content and return the metadata for Adobe Stock marketplace:
 
 1. Title: extremely relevant, clear, concise, 5-10 words only, no punctuation, prioritize trending accurate phrases.
 2. Description: no more than 200 characters, very informative, clear and keyword-rich.
-3. Keywords: return exactly 49 highly relevant, popular and trending one-word keywords only, comma-separated, no duplicates. First 10 keywords must match top downloaded contributor tags. No phrases.;
+3. Keywords: return exactly 49 highly relevant, popular and trending one-word keywords only, comma-separated, no duplicates. First 10 keywords must match top downloaded contributor tags. No phrases.`;
 
         const body = {
             contents: [{
@@ -106,7 +106,7 @@ document.addEventListener("DOMContentLoaded", () => {
         for (let attempt = 0; attempt < 2; attempt++) {
             try {
                 const res = await fetchWithTimeout(
-                    https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key=${userApiKey},
+                    `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key=${userApiKey}`,
                     {
                         method: "POST",
                         headers: { "Content-Type": "application/json" },
@@ -143,7 +143,7 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     function extract(field, text) {
-        const match = text.match(new RegExp(${field}\s*[:：]\s*(.*?)\n, "i"));
+        const match = text.match(new RegExp(`${field}\\s*[:：]\\s*(.*?)\\n`, "i"));
         return match ? match[1].replace(/^\*+|\*+$/g, "").trim() : "N/A";
     }
 
@@ -167,12 +167,12 @@ document.addEventListener("DOMContentLoaded", () => {
             const desc = clean(extract("description", item.text));
             const keywords = clean(extract("keywords", item.text));
 
-            block.innerHTML += 
+            block.innerHTML += `
                 <div class="tab-header"><h3>${item.filename}</h3></div>
-                <div><strong>Title:</strong> <button class="copy-btn" onclick="copyText(\${title}\)">Copy</button><pre>${title}</pre></div>
-                <div><strong>Description:</strong> <button class="copy-btn" onclick="copyText(\${desc}\)">Copy</button><pre>${desc}</pre></div>
-                <div><strong>Keywords:</strong> <button class="copy-btn" onclick="copyText(\${keywords}\)">Copy</button><pre>${keywords}</pre></div>
-            ;
+                <div><strong>Title:</strong> <button class="copy-btn" onclick="copyText(\`${title}\`)">Copy</button><pre>${title}</pre></div>
+                <div><strong>Description:</strong> <button class="copy-btn" onclick="copyText(\`${desc}\`)">Copy</button><pre>${desc}</pre></div>
+                <div><strong>Keywords:</strong> <button class="copy-btn" onclick="copyText(\`${keywords}\`)">Copy</button><pre>${keywords}</pre></div>
+            `;
             results.appendChild(block);
         });
     }
