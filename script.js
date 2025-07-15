@@ -88,7 +88,10 @@ document.addEventListener("DOMContentLoaded", () => {
                                 desc && desc !== "N/A" &&
                                 keywords && keywords !== "N/A";
 
-                if (isValid) break;
+                if (isValid) {
+                    result.text = `Title: ${title}\nDescription: ${desc}\nKeywords: ${keywords}`;
+                    break;
+                }
 
                 retries++;
                 console.warn(`🔁 Retry ${retries} untuk file: ${file.name}`);
@@ -130,10 +133,9 @@ document.addEventListener("DOMContentLoaded", () => {
             };
 
             let text = "";
-            let success = false;
 
             for (let attempt = 0; attempt < 3; attempt++) {
-                await sleep(attempt * 1500);
+                await sleep(1000 * (attempt + 1));
                 try {
                     const res = await fetchWithTimeout(
                         `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key=${userApiKey}`,
@@ -152,16 +154,14 @@ document.addEventListener("DOMContentLoaded", () => {
 
                     const raw = data.candidates?.[0]?.content?.parts?.[0]?.text || "";
                     text = raw;
-                    if (text && text.length > 30) {
-                        success = true;
-                        break;
-                    }
+                    if (text && text.length > 30) break;
+
                 } catch (err) {
                     console.error("Fetch error:", err.message);
                 }
             }
 
-            if (!success) {
+            if (!text) {
                 text = "Gagal menghasilkan metadata. Periksa API key atau coba lagi nanti.";
             }
 
@@ -169,7 +169,7 @@ document.addEventListener("DOMContentLoaded", () => {
                 filename: file.name,
                 previewUrl: URL.createObjectURL(file),
                 type: file.type,
-                text: text || "No result"
+                text: text
             };
         } catch (err) {
             console.error("Fatal error on file:", file.name, err);
