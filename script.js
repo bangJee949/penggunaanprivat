@@ -59,7 +59,7 @@ document.addEventListener("DOMContentLoaded", () => {
     generateButton.addEventListener("click", async () => {
         if (!userApiKey) return alert("API Key not set.");
 
-        results.innerHTML = "Generating metadata...";
+        results.innerHTML = "<p><strong>⏳ Sedang menganalisis gambar... Mohon tunggu beberapa detik.</strong></p>";
         const output = [];
 
         for (const file of uploadedFiles.slice(0, 3)) {
@@ -67,7 +67,7 @@ document.addEventListener("DOMContentLoaded", () => {
             const blob = await (await fetch(base64)).blob();
 
             const captionData = await callDeepAI("image-captioning", blob);
-            const tagData = await callDeepAI("densecap", blob);
+            console.log("Caption result:", captionData);
 
             let rawTitle = captionData?.output?.trim() || "Untitled Stock Video";
             rawTitle = rawTitle.replace(/[.,:!?]/g, "").toLowerCase();
@@ -77,12 +77,8 @@ document.addEventListener("DOMContentLoaded", () => {
 
             const description = `Stock footage menampilkan ${rawTitle}, cocok untuk penggunaan komersial, editorial, dan proyek kreatif lainnya.`;
 
-            const tags = tagData?.output?.captions?.map(c => c.caption.split(" "))
-                .flat()
-                .map(k => k.toLowerCase().replace(/[^\w]/g, ""))
-                .filter(k => k.length > 2);
-
-            const keywordSet = new Set([...tags, ...titleWords]);
+            // Gunakan kata dari title saja sebagai keyword (sementara tanpa densecap)
+            const keywordSet = new Set(titleWords);
             const keywords = Array.from(keywordSet).filter(Boolean).slice(0, 45);
 
             const text = `
@@ -106,17 +102,22 @@ Keywords: ${keywords.join(", ")}
         const formData = new FormData();
         formData.append("image", blob);
 
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), 20000);
+
         try {
             const res = await fetch(`https://api.deepai.org/api/${endpoint}`, {
                 method: "POST",
                 headers: {
                     "api-key": userApiKey
                 },
-                body: formData
+                body: formData,
+                signal: controller.signal
             });
+            clearTimeout(timeout);
             return await res.json();
         } catch (err) {
-            console.error(`DeepAI ${endpoint} error:`, err);
+            console.error(`DeepAI ${endpoint} error:`, err.message);
             return null;
         }
     }
