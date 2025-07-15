@@ -185,29 +185,29 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     function displayResults(dataArray) {
-        dataArray.forEach(item => {
-            const block = document.createElement("div");
-            block.className = "tab-block";
+    dataArray.forEach(item => {
+        const block = document.createElement("div");
+        block.className = "tab-block";
 
-            const media = document.createElement(item.type.startsWith("video/") ? "video" : "img");
-            media.src = item.previewUrl;
-            if (item.type.startsWith("video/")) media.controls = true;
-            media.className = "preview-media";
-            block.appendChild(media);
+        const media = document.createElement(item.type.startsWith("video/") ? "video" : "img");
+        media.src = item.previewUrl;
+        if (item.type.startsWith("video/")) media.controls = true;
+        media.className = "preview-media";
+        block.appendChild(media);
 
-            const title = clean(extract("title", item.text));
-            const desc = clean(extract("description", item.text));
-            const keywords = clean(extract("keywords", item.text));
+        const title = clean(extract("title", item.text));
+        const desc = clean(extract("description", item.text));
+        const keywords = clean(extract("keywords", item.text));
 
-            block.innerHTML += `
-                <div class="tab-header"><h3>${item.filename}</h3></div>
-                <div><strong>Title:</strong> <button class="copy-btn" onclick="copyText(\`${title}\`)">Copy</button><pre>${title}</pre></div>
-                <div><strong>Description:</strong> <button class="copy-btn" onclick="copyText(\`${desc}\`)">Copy</button><pre>${desc}</pre></div>
-                <div><strong>Keywords:</strong> <button class="copy-btn" onclick="copyText(\`${keywords}\`)">Copy</button><pre>${keywords}</pre></div>
-            `;
-            results.appendChild(block);
-        });
-    }
+        block.innerHTML += `
+            <div class="tab-header"><h3>${item.filename}</h3></div>
+            <div><strong>Title:</strong> <button class="copy-btn" onclick="copyText(\`${title}\`)">Copy</button><pre>${title}</pre></div>
+            <div><strong>Description:</strong> <button class="copy-btn" onclick="copyText(\`${desc}\`)">Copy</button><pre>${desc}</pre></div>
+            <div><strong>Keywords:</strong> <button class="copy-btn" onclick="copyText(\`${keywords}\`)">Copy</button><pre>${keywords}</pre></div>
+        `;
+        results.appendChild(block);
+    });
+}
 
     window.copyText = function(txt) {
         navigator.clipboard.writeText(txt).then(() => {
