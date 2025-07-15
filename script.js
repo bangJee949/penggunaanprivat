@@ -67,7 +67,7 @@ document.addEventListener("DOMContentLoaded", () => {
         results.innerHTML = "⏳ Memproses metadata, harap tunggu...";
         processQueue(uploadedFiles);
     });
-    async function processQueue(files) {
+ async function processQueue(files) {
     results.innerHTML = ""; // hanya dibersihkan sekali di awal
     for (const [index, file] of files.entries()) {
         const notice = document.createElement("div");
