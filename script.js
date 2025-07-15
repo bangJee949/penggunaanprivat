@@ -69,15 +69,42 @@ document.addEventListener("DOMContentLoaded", () => {
             const captionData = await callDeepAI("image-captioning", blob);
             const tagData = await callDeepAI("densecap", blob);
 
+            // Paksa dianggap video
             const baseName = file.name.replace(/\.[^/.]+$/, "").replace(/[_-]/g, " ");
-            const title = baseName.slice(0, 70);
-            const description = captionData?.output || "Deskripsi tidak tersedia.";
+            const cleanTitle = baseName.replace(/[0-9a-f]{10,}/g, "").trim();
+            const titleWords = cleanTitle.split(" ").filter(w => w.length > 2);
+            const title = titleWords.length > 0
+                ? titleWords.slice(0, 7).join(" ")
+                : "Cinematic stock footage";
 
-            const tags = tagData?.output?.captions?.map(c => c.caption.split(" "))
-                .flat()
-                .map(k => k.toLowerCase().replace(/[^\w]/g, ""))
-                .filter(k => k.length > 3);
-            const keywords = [...new Set(tags)].slice(0, 49);
+            const rawCaption = captionData?.output || "";
+            const description = rawCaption
+                ? `Cuplikan video sinematik yang menampilkan ${rawCaption.toLowerCase()}, cocok untuk produksi film, video kreatif, atau iklan.`
+                : "Cuplikan video berkualitas untuk proyek multimedia.";
+
+            let keywordPool = [];
+            if (tagData?.output?.captions) {
+                tagData.output.captions.forEach(c => {
+                    const words = c.caption.split(" ").map(w => w.toLowerCase().replace(/[^\w]/g, ""));
+                    keywordPool.push(...words);
+                });
+            }
+
+            keywordPool.push(...titleWords.map(w => w.toLowerCase()));
+
+            const videoKeywords = [
+                "footage", "cinematic", "b roll", "slowmotion", "scene", "clip", "motion", "loop",
+                "film", "editorial", "hd", "4k", "animation", "timelapse", "transition",
+                "intro", "trailer", "reel", "aerial", "zoom", "pan", "tilt", "action", "sequence",
+                "drone", "video", "clip", "dynamic", "cinematography", "movement", "storytelling",
+                "camera", "recording", "vlog", "creative", "trending", "professional", "broadcast", "stock"
+            ];
+
+            keywordPool.push(...videoKeywords);
+
+            const keywords = [...new Set(keywordPool)]
+                .filter(k => k.length > 2 && k.length < 25)
+                .slice(0, 45);
 
             const text = `
 Title: ${title}
