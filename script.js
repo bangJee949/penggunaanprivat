@@ -76,24 +76,24 @@ document.addEventListener("DOMContentLoaded", () => {
 
             let result;
             let retries = 0;
-            let maxRetries = 3;
+            const maxRetries = 3;
 
-            while (retries < maxRetries) {
+            do {
                 result = await generateMetadataFromFile(file);
                 const title = clean(extract("title", result.text));
                 const desc = clean(extract("description", result.text));
                 const keywords = clean(extract("keywords", result.text));
 
-                const isValid = title !== "N/A" && title !== "" &&
-                                desc !== "N/A" && desc !== "" &&
-                                keywords !== "N/A" && keywords !== "";
+                const isValid = title && title !== "N/A" &&
+                                desc && desc !== "N/A" &&
+                                keywords && keywords !== "N/A";
 
                 if (isValid) break;
 
-                console.warn(`🔁 Retry ${retries + 1} untuk file: ${file.name}`);
                 retries++;
+                console.warn(`🔁 Retry ${retries} untuk file: ${file.name}`);
                 await sleep(3000);
-            }
+            } while (retries < maxRetries);
 
             displayResults([result]);
             await sleep(2500);
