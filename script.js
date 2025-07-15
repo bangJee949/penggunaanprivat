@@ -67,124 +67,113 @@ document.addEventListener("DOMContentLoaded", () => {
         results.innerHTML = "⏳ Memproses metadata, harap tunggu...";
         processQueue(uploadedFiles);
     });
-
     async function processQueue(files) {
-        for (const [index, file] of files.entries()) {
-            results.innerHTML = `⏳ Memproses file ${index + 1} dari ${files.length}...`;
-            const result = await generateMetadataFromFile(file);
-            displayResults([result]);
-            await sleep(3000); // Delay antar file
+    results.innerHTML = ""; // hanya dibersihkan sekali di awal
+    for (const [index, file] of files.entries()) {
+        const notice = document.createElement("div");
+        notice.textContent = `⏳ Memproses file ${index + 1} dari ${files.length}...`;
+        results.appendChild(notice);
+
+        let result;
+        let retries = 0;
+        let maxRetries = 3;
+
+        while (retries < maxRetries) {
+            result = await generateMetadataFromFile(file);
+            const hasValid = result.text.includes("title") && result.text.includes("description") && result.text.includes("keywords");
+            if (hasValid && !result.text.includes("N/A") && !result.text.includes("Gagal")) break;
+
+            console.warn(`🔁 Retry ${retries + 1} untuk file: ${file.name}`);
+            retries++;
+            await sleep(3000); // delay antar retry
         }
-        results.innerHTML += "<div><strong>✅ Semua file selesai diproses.</strong></div>";
+
+        displayResults([result]);
+        await sleep(2500); // delay antar file
     }
 
-    async function generateMetadataFromFile(file) {
-        const base64 = await fileToBase64(file);
-        const type = file.type.startsWith("video/") ? "video" : "image";
+    const done = document.createElement("div");
+    done.innerHTML = "<strong>✅ Semua file selesai diproses.</strong>";
+    results.appendChild(done);
+}
 
-        const prompt = `Please analyze this ${type} content and return the metadata for Adobe Stock marketplace:
+async function generateMetadataFromFile(file) {
+    const base64 = await fileToBase64(file);
+    const type = file.type.startsWith("video/") ? "video" : "image";
+
+    const prompt = `Please analyze this ${type} content and return the metadata for Adobe Stock marketplace:
 
 1. Title: extremely relevant, clear, concise, 5-10 words only, no punctuation, prioritize trending accurate phrases.
 2. Description: no more than 200 characters, very informative, clear and keyword-rich.
 3. Keywords: return exactly 49 highly relevant, popular and trending one-word keywords only, comma-separated, no duplicates. First 10 keywords must match top downloaded contributor tags. No phrases.`;
 
-        const body = {
-            contents: [{
-                parts: [
-                    { text: prompt },
-                    {
-                        inline_data: {
-                            mime_type: file.type,
-                            data: base64.split(",")[1]
-                        }
+    const body = {
+        contents: [{
+            parts: [
+                { text: prompt },
+                {
+                    inline_data: {
+                        mime_type: file.type,
+                        data: base64.split(",")[1]
                     }
-                ]
-            }]
-        };
-
-        let text = "";
-        let success = false;
-
-        for (let attempt = 0; attempt < 3; attempt++) {
-            await sleep(attempt * 1500);
-            try {
-                const res = await fetchWithTimeout(
-                    `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key=${userApiKey}`,
-                    {
-                        method: "POST",
-                        headers: { "Content-Type": "application/json" },
-                        body: JSON.stringify(body)
-                    }
-                );
-
-                const data = await res.json();
-                if (data.error) {
-                    console.error("Gemini API Error:", data.error.message);
-                    continue;
                 }
+            ]
+        }]
+    };
 
-                const raw = data.candidates?.[0]?.content?.parts?.[0]?.text || "";
-                const hasAllFields = /title\s*[:：]\s*/i.test(raw) &&
-                                     /description\s*[:：]\s*/i.test(raw) &&
-                                     /keywords\s*[:：]\s*/i.test(raw);
+    let text = "";
+    let success = false;
 
-                if (!hasAllFields || raw.trim().length < 30) {
-                    console.warn("Incomplete response, retrying...");
-                    continue;
+    for (let attempt = 0; attempt < 3; attempt++) {
+        await sleep(attempt * 1500);
+        try {
+            const res = await fetchWithTimeout(
+                `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key=${userApiKey}`,
+                {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify(body)
                 }
+            );
 
-                text = raw;
-                success = true;
-                break;
-
-            } catch (err) {
-                console.error("Fetch error:", err.message);
+            const data = await res.json();
+            if (data.error) {
+                console.error("Gemini API Error:", data.error.message);
+                continue;
             }
+
+            const raw = data.candidates?.[0]?.content?.parts?.[0]?.text || "";
+            const hasAllFields = /title\s*[:：]\s*/i.test(raw) &&
+                                 /description\s*[:：]\s*/i.test(raw) &&
+                                 /keywords\s*[:：]\s*/i.test(raw);
+
+            if (!hasAllFields || raw.trim().length < 30) {
+                console.warn("❌ Incomplete response, retrying...");
+                continue;
+            }
+
+            text = raw;
+            success = true;
+            break;
+
+        } catch (err) {
+            console.error("Fetch error:", err.message);
         }
-
-        if (!success) {
-            text = "Gagal menghasilkan metadata. Periksa API key atau coba lagi nanti.";
-        }
-
-        return {
-            filename: file.name,
-            previewUrl: URL.createObjectURL(file),
-            type: file.type,
-            text: text || "No result"
-        };
     }
 
-    function fileToBase64(file) {
-        return new Promise((resolve, reject) => {
-            const reader = new FileReader();
-            reader.readAsDataURL(file);
-            reader.onload = () => resolve(reader.result);
-            reader.onerror = err => reject(err);
-        });
+    if (!success) {
+        text = "Gagal menghasilkan metadata. Periksa API key atau coba lagi nanti.";
     }
 
-    function fetchWithTimeout(url, options, timeout = 15000) {
-        return Promise.race([
-            fetch(url, options),
-            new Promise((_, reject) => setTimeout(() => reject(new Error("Request timeout")), timeout))
-        ]);
-    }
+    return {
+        filename: file.name,
+        previewUrl: URL.createObjectURL(file),
+        type: file.type,
+        text: text || "No result"
+    };
+}
 
-    function extract(field, text) {
-        const regex = new RegExp(`${field}\\s*[:：]?\\s*(.+?)(\\n|$)`, "i");
-        const match = text.match(regex);
-        return match ? match[1].replace(/^\*+|\*+$/g, "").trim() : "N/A";
-    }
-
-    function clean(text) {
-        return text.replace(/^\*+|\*+$/g, "").trim();
-    }
-
-    function sleep(ms) {
-        return new Promise(resolve => setTimeout(resolve, ms));
-    }
-
-    function displayResults(dataArray) {
+function displayResults(dataArray) {
     dataArray.forEach(item => {
         const block = document.createElement("div");
         block.className = "tab-block";
@@ -208,6 +197,7 @@ document.addEventListener("DOMContentLoaded", () => {
         results.appendChild(block);
     });
 }
+
 
     window.copyText = function(txt) {
         navigator.clipboard.writeText(txt).then(() => {
