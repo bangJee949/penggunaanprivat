@@ -1,6 +1,6 @@
 function generateMetadata(fileName, tags = []) {
     const baseName = fileName.replace(/\.[^/.]+$/, "").replace(/[_-]/g, " ");
-    const title = baseName.slice(0, 70);
+    const title = baseName.slice(0, 70);  // Max 70 chars
 
     const description = `Foto atau video dengan judul "${baseName}" yang menggambarkan konten visual dengan jelas. Cocok untuk digunakan dalam berbagai proyek kreatif yang memerlukan aset visual berkualitas.`;
 
@@ -60,55 +60,22 @@ document.addEventListener("DOMContentLoaded", () => {
         generateButton.disabled = uploadedFiles.length === 0;
     });
 
-    generateButton.addEventListener("click", () => {
+    generateButton.addEventListener("click", async () => {
         if (!userApiKey) return alert("API Key not set.");
-        if (uploadedFiles.length === 0) return;
 
-        results.innerHTML = "";
-        processQueue(uploadedFiles);
-    });
+        results.innerHTML = "Generating metadata...";
+        const output = [];
 
-    async function processQueue(files) {
-        for (const [index, file] of files.entries()) {
-            const notice = document.createElement("div");
-            notice.textContent = `⏳ Memproses file ${index + 1} dari ${files.length}...`;
-            results.appendChild(notice);
+        const fetchWithTimeout = (url, options, timeout = 15000) =>
+            Promise.race([
+                fetch(url, options),
+                new Promise((_, reject) =>
+                    setTimeout(() => reject(new Error("Request timeout")), timeout)
+                )
+            ]);
 
-            let result;
-            let retries = 0;
-            const maxRetries = 3;
-
-            do {
-                result = await generateMetadataFromFile(file);
-                const title = clean(extract("title", result.text));
-                const desc = clean(extract("description", result.text));
-                const keywords = clean(extract("keywords", result.text));
-
-                const isValid = title && title !== "N/A" &&
-                                desc && desc !== "N/A" &&
-                                keywords && keywords !== "N/A";
-
-                if (isValid) {
-                    result.text = `Title: ${title}\nDescription: ${desc}\nKeywords: ${keywords}`;
-                    break;
-                }
-
-                retries++;
-                console.warn(`🔁 Retry ${retries} untuk file: ${file.name}`);
-                await sleep(3000);
-            } while (retries < maxRetries);
-
-            displayResults([result]);
-            await sleep(2500);
-        }
-
-        const done = document.createElement("div");
-        done.innerHTML = "<strong>✅ Semua file selesai diproses.</strong>";
-        results.appendChild(done);
-    }
-
-    async function generateMetadataFromFile(file) {
-        try {
+        for (const file of uploadedFiles.slice(0, 3)) {
+            await sleep(1500); // jeda antar file
             const base64 = await fileToBase64(file);
             const type = file.type.startsWith("video/") ? "video" : "image";
 
@@ -133,9 +100,10 @@ document.addEventListener("DOMContentLoaded", () => {
             };
 
             let text = "";
+            let success = false;
 
             for (let attempt = 0; attempt < 3; attempt++) {
-                await sleep(1000 * (attempt + 1));
+                await sleep(attempt * 1500);  // bertambah jeda tiap retry
                 try {
                     const res = await fetchWithTimeout(
                         `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key=${userApiKey}`,
@@ -153,34 +121,34 @@ document.addEventListener("DOMContentLoaded", () => {
                     }
 
                     const raw = data.candidates?.[0]?.content?.parts?.[0]?.text || "";
+                    if (raw.trim().length < 30) {
+                        console.warn("Too short response, retrying...");
+                        continue;
+                    }
+
                     text = raw;
-                    if (text && text.length > 30) break;
+                    success = true;
+                    break;
 
                 } catch (err) {
                     console.error("Fetch error:", err.message);
                 }
             }
 
-            if (!text) {
+            if (!success) {
                 text = "Gagal menghasilkan metadata. Periksa API key atau coba lagi nanti.";
             }
 
-            return {
+            output.push({
                 filename: file.name,
                 previewUrl: URL.createObjectURL(file),
                 type: file.type,
-                text: text
-            };
-        } catch (err) {
-            console.error("Fatal error on file:", file.name, err);
-            return {
-                filename: file.name,
-                previewUrl: URL.createObjectURL(file),
-                type: file.type,
-                text: "❌ Gagal total saat memproses file ini."
-            };
+                text: text || "No result"
+            });
         }
-    }
+
+        displayResults(output);
+    });
 
     function fileToBase64(file) {
         return new Promise((resolve, reject) => {
@@ -191,19 +159,8 @@ document.addEventListener("DOMContentLoaded", () => {
         });
     }
 
-    function fetchWithTimeout(url, options, timeout = 15000) {
-        return Promise.race([
-            fetch(url, options),
-            new Promise((_, reject) => setTimeout(() => reject(new Error("Request timeout")), timeout))
-        ]);
-    }
-
-    function sleep(ms) {
-        return new Promise(resolve => setTimeout(resolve, ms));
-    }
-
     function extract(field, text) {
-        const regex = new RegExp(`${field}\s*[:：]?\s*(.+?)(\n|$)`, "i");
+        const regex = new RegExp(`${field}\\s*[:：]?\\s*(.+?)(\\n|$)`, "i");
         const match = text.match(regex);
         return match ? match[1].replace(/^\*+|\*+$/g, "").trim() : "N/A";
     }
@@ -212,7 +169,12 @@ document.addEventListener("DOMContentLoaded", () => {
         return text.replace(/^\*+|\*+$/g, "").trim();
     }
 
+    function sleep(ms) {
+        return new Promise(resolve => setTimeout(resolve, ms));
+    }
+
     function displayResults(dataArray) {
+        results.innerHTML = "";
         dataArray.forEach(item => {
             const block = document.createElement("div");
             block.className = "tab-block";
